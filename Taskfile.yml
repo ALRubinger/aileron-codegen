@@ -1,0 +1,42 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  build:
+    desc: Build the aileron-codegen CLI into build/aileron-codegen
+    cmds:
+      - mkdir -p build
+      - go build -trimpath -ldflags="-s -w" -o build/aileron-codegen ./cmd/aileron-codegen
+
+  test:
+    desc: Run unit tests with coverage (writes coverage.out for Codecov upload)
+    cmds:
+      - go test -v -count=1 -coverprofile=coverage.out ./...
+
+  vet:
+    desc: go vet across the module
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run staticcheck across the module
+    cmds:
+      - go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+
+  ci:
+    desc: Local CI gate — build, test, vet, lint
+    cmds:
+      - task: build
+      - task: test
+      - task: vet
+      - task: lint
+
+  clean:
+    desc: Remove build artifacts and coverage output
+    cmds:
+      - rm -rf build coverage.out

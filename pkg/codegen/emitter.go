@@ -15,17 +15,35 @@ type Options struct {
 }
 
 // Emitter writes connector scaffolding derived from a Spec and Overlay into
-// an output directory. One implementation per output kind lands as the
-// emitters are built: action.md, manifest.toml, suite.toml, typed Go client.
+// an output directory. One implementation per output kind: ActionEmitter
+// today, with manifest.toml / suite.toml / typed Go client emitters in
+// follow-up PRs.
 type Emitter interface {
 	Emit(spec Spec, overlay Overlay, outDir string) error
 }
 
+// defaultEmitters runs in declared order on every Generate call.
+var defaultEmitters = []Emitter{ActionEmitter{}}
+
 // Generate is the high-level entry point used by the CLI. It loads the spec
-// and overlay, then dispatches to the registered emitters. With no emitters
-// registered yet, it ensures OutDir exists and returns.
+// and overlay, then dispatches each registered emitter against the parsed
+// inputs.
 func Generate(opts Options) error {
-	_, _ = LoadSpec(opts.SpecPath)
-	_, _ = LoadOverlay(opts.OverlayPath)
-	return os.MkdirAll(opts.OutDir, 0o755)
+	spec, err := LoadSpec(opts.SpecPath)
+	if err != nil {
+		return err
+	}
+	overlay, err := LoadOverlay(opts.OverlayPath)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {
+		return err
+	}
+	for _, e := range defaultEmitters {
+		if err := e.Emit(spec, overlay, opts.OutDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }

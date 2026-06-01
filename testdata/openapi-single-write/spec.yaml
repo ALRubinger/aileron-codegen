@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: messages-api
+  version: 0.0.0
+paths:
+  /messages:
+    post:
+      operationId: sendMessage
+      summary: send a message to a channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, body]
+              properties:
+                to:
+                  type: string
+                  description: Channel or user the message is sent to.
+                body:
+                  type: string
+                  description: Message body.
+      responses:
+        "200":
+          description: ok

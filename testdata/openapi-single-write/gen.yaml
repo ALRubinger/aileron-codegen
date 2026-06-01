@@ -1,0 +1,10 @@
+connector:
+  name: "github://ALRubinger/aileron-connector-example"
+  credential:
+    kind: "oauth2"
+
+operations:
+  sendMessage:
+    idempotent: false
+    approval: required
+    capabilities: ["send_message"]

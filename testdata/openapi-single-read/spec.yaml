@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: messages-api
+  version: 0.0.0
+paths:
+  /messages:
+    get:
+      operationId: listMessages
+      summary: list recent messages
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of messages to return.
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ok

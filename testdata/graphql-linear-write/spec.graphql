@@ -1,0 +1,42 @@
+type Query {
+  """Currently authenticated user."""
+  viewer: User
+}
+
+type User {
+  id: ID!
+  name: String!
+}
+
+type Mutation {
+  """Create a new Linear issue."""
+  issueCreate(
+    """Issue input fields."""
+    input: IssueCreateInput!
+  ): IssuePayload!
+}
+
+input IssueCreateInput {
+  """Issue title."""
+  title: String!
+  """Markdown body of the issue."""
+  description: String
+  """UUID of the target team."""
+  teamId: String!
+  """UUID of the assignee."""
+  assigneeId: String
+  """Priority value: 0 (No priority), 1 (Urgent), 2 (High), 3 (Medium), 4 (Low)."""
+  priority: Int
+}
+
+type IssuePayload {
+  success: Boolean!
+  issue: Issue
+  lastSyncId: Float!
+}
+
+type Issue {
+  id: ID!
+  identifier: String!
+  title: String!
+}

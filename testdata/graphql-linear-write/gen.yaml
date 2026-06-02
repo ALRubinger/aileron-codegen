@@ -1,0 +1,10 @@
+connector:
+  name: "github://ALRubinger/aileron-connector-linear"
+  credential:
+    kind: "api_key"
+
+operations:
+  issueCreate:
+    idempotent: false
+    approval: required
+    capabilities: ["create_issue"]

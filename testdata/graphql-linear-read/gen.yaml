@@ -1,0 +1,13 @@
+connector:
+  name: "github://ALRubinger/aileron-connector-linear"
+  credential:
+    kind: "api_key"
+
+operations:
+  issue:
+    idempotent: true
+    approval: none
+    capabilities: ["get_issue"]
+    action_name: "get-issue"
+    execute_id: "get"
+    intent: "fetch a Linear issue by id"

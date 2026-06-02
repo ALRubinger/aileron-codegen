@@ -39,7 +39,7 @@ func runCase(t *testing.T, caseDir string) {
 	t.Helper()
 	outDir := t.TempDir()
 	if err := codegen.Generate(codegen.Options{
-		SpecPath:    filepath.Join(caseDir, "spec.yaml"),
+		SpecPath:    findSpec(t, caseDir),
 		OverlayPath: filepath.Join(caseDir, "gen.yaml"),
 		OutDir:      outDir,
 	}); err != nil {
@@ -48,6 +48,28 @@ func runCase(t *testing.T, caseDir string) {
 	expected := snapshot(t, filepath.Join(caseDir, "expected"))
 	actual := snapshot(t, outDir)
 	diff(t, expected, actual)
+}
+
+// findSpec locates the single spec.* file in caseDir. Extensions vary by
+// loader (OpenAPI uses spec.yaml; GraphQL uses spec.graphql), so the
+// harness discovers it rather than hard-coding.
+func findSpec(t *testing.T, caseDir string) string {
+	t.Helper()
+	entries, err := os.ReadDir(caseDir)
+	if err != nil {
+		t.Fatalf("read %s: %v", caseDir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, "spec.") {
+			return filepath.Join(caseDir, name)
+		}
+	}
+	t.Fatalf("no spec.* file under %s", caseDir)
+	return ""
 }
 
 // snapshot returns a map of slash-separated relative path -> sha256(content)

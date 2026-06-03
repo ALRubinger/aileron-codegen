@@ -4,6 +4,7 @@
 #   Mutation     -> idempotent: false, approval: required
 # Capabilities default to [snake_case(operationId)].
 connector:
+  endpoint: "https://example.com/graphql"
   name: "github://example/connector-defaults"
   credential:
     kind: "api_key"

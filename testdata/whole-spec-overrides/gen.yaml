@@ -3,6 +3,7 @@
 # it would be non-idempotent + approval-required (Mutation), but it's
 # reversible client-side so we relax both.
 connector:
+  endpoint: "https://example.com/graphql"
   name: "github://example/connector-overrides"
   credential:
     kind: "api_key"

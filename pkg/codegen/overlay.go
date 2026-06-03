@@ -45,6 +45,11 @@ type Overlay struct {
 type ConnectorOverlay struct {
 	Name       string
 	Publisher  string
+	// Endpoint is the absolute URL the connector POSTs to for every
+	// op (the GraphQL endpoint for GraphQL connectors; the base URL
+	// for REST). Required for transport-file emission
+	// (`connector/graphql.go`); when empty TransportEmitter is a no-op.
+	Endpoint   string
 	Credential CredentialOverlay
 	Network    NetworkOverlay
 }
@@ -141,6 +146,7 @@ type overlayDoc struct {
 type connectorYAML struct {
 	Name       string         `yaml:"name"`
 	Publisher  string         `yaml:"publisher"`
+	Endpoint   string         `yaml:"endpoint"`
 	Credential credentialYAML `yaml:"credential"`
 	Network    networkYAML    `yaml:"network"`
 }
@@ -184,6 +190,7 @@ func (d overlayDoc) toOverlay() Overlay {
 		Connector: ConnectorOverlay{
 			Name:       d.Connector.Name,
 			Publisher:  d.Connector.Publisher,
+			Endpoint:   d.Connector.Endpoint,
 			Credential: CredentialOverlay(d.Connector.Credential),
 			Network:    NetworkOverlay(d.Connector.Network),
 		},

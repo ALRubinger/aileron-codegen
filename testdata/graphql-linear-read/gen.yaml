@@ -1,4 +1,5 @@
 connector:
+  endpoint: "https://example.com/graphql"
   name: "github://ALRubinger/aileron-connector-linear"
   credential:
     kind: "api_key"

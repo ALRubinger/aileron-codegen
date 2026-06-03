@@ -35,6 +35,8 @@ var defaultEmitters = []Emitter{
 	ManifestEmitter{},
 	SuiteEmitter{},
 	HandlerEmitter{},
+	DispatchEmitter{},
+	TransportEmitter{},
 }
 
 // Generate is the high-level entry point used by the CLI. It loads the spec

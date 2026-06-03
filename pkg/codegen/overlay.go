@@ -16,7 +16,20 @@ import (
 // ALRubinger/aileron#893).
 type Overlay struct {
 	Connector  ConnectorOverlay
+	// Operations are governance overrides keyed by spec operationId.
+	// An entry here is an override on top of the kind-based defaults
+	// (Query/Subscription/GET/HEAD/PUT → idempotent, non-write;
+	// Mutation/POST/PATCH/DELETE → non-idempotent, approval-required).
+	// Operations not declared here still emit, using the defaults. An
+	// entry whose operationId does not appear in the spec is a typo
+	// and is rejected at emission time.
 	Operations map[string]OperationOverlay
+	// Exclude drops specific spec operations from emission. Use for
+	// introspection helpers, deprecated endpoints, admin/destructive
+	// paths the connector deliberately doesn't surface, etc. Listing
+	// an operationId here that the spec doesn't define is a typo and
+	// is rejected at emission time.
+	Exclude []string
 	// Suite is optional. When absent, SuiteEmitter is a no-op (some
 	// connectors prefer per-action installability without a top-level
 	// suite).
@@ -78,13 +91,24 @@ type SuiteOverlay struct {
 	Description string
 }
 
-// OperationOverlay carries governance metadata for one spec operation.
+// OperationOverlay carries per-operation overrides on top of the
+// kind-based governance defaults (Query/Subscription/GET/HEAD/PUT →
+// idempotent, no approval; Mutation/POST/PATCH/DELETE → non-idempotent,
+// approval-required). Every field is optional: an empty field means
+// "use the default."
+//
+// Booleans use a pointer to distinguish "user explicitly set this" from
+// "user did not set this" — yaml.v3 leaves a *bool nil when the key is
+// absent and points at the parsed value when present.
 type OperationOverlay struct {
-	// Idempotent declares whether retries are safe (ADR-0010).
-	Idempotent bool
-	// Approval is "required" to gate per-call (ADR-0009), "none" otherwise.
+	// Idempotent (when non-nil) overrides whether retries are safe
+	// (ADR-0010). Nil means use the default for the operation's method.
+	Idempotent *bool
+	// Approval is "required" to gate per-call (ADR-0009), "none" to
+	// relax. Empty means use the default for the operation's method.
 	Approval string
-	// Capabilities is the capability identifier list this operation needs.
+	// Capabilities is the capability identifier list this operation
+	// needs. Empty means default to [snake_case(operationId)].
 	Capabilities []string
 	// Intent overrides the spec's operation summary when set.
 	Intent string
@@ -110,6 +134,7 @@ func LoadOverlay(path string) (Overlay, error) {
 type overlayDoc struct {
 	Connector  connectorYAML            `yaml:"connector"`
 	Operations map[string]operationYAML `yaml:"operations"`
+	Exclude    []string                 `yaml:"exclude"`
 	Suite      *suiteYAML               `yaml:"suite"`
 }
 
@@ -141,7 +166,7 @@ type suiteYAML struct {
 }
 
 type operationYAML struct {
-	Idempotent   bool     `yaml:"idempotent"`
+	Idempotent   *bool    `yaml:"idempotent"`
 	Approval     string   `yaml:"approval"`
 	Capabilities []string `yaml:"capabilities"`
 	Intent       string   `yaml:"intent"`
@@ -155,6 +180,7 @@ func (d overlayDoc) toOverlay() Overlay {
 		ops[k] = OperationOverlay(v)
 	}
 	out := Overlay{
+		Exclude: append([]string(nil), d.Exclude...),
 		Connector: ConnectorOverlay{
 			Name:       d.Connector.Name,
 			Publisher:  d.Connector.Publisher,

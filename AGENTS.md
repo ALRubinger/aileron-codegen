@@ -19,7 +19,7 @@ The generator runs at build time only. Connector binaries never see codegen.
 | `action.md` emission | shipped (TOML front-matter only; prose body deferred) |
 | `connector/manifest.toml` emission | shipped — `[connector]` + `[capabilities.network]` + `[capabilities.credential]` for `api_key` and `oauth2` kinds |
 | `suite.toml` emission | shipped — optional, no-op when overlay lacks `suite:` block |
-| Whole-spec default action emission | **not shipped** — tracked at [#7](https://github.com/ALRubinger/aileron-codegen/issues/7) |
+| Whole-spec default action emission | shipped — every op in the spec emits with kind-based defaults; `operations:` is override-only; `exclude:` drops unwanted ops; unknown overlay op ids are rejected as typos |
 | Typed Go fetch client | **not shipped** — delegate to oapi-codegen / genqlient when wired |
 | Multi-spec / multi-tenant | **out of scope** |
 
@@ -54,6 +54,9 @@ The existing golden cases:
 | `graphql-linear-read/` | GraphQL | Query field, scalar arg, all three overlay overrides exercised |
 | `graphql-linear-write/` | GraphQL | Mutation + input-object flattening into multiple `[[inputs]]` |
 | `connector-full-graphql/` | GraphQL | Full stack: action.md per op + `connector/manifest.toml` (api_key with `header`/`format`) + `suite.toml` |
+| `whole-spec-graphql-defaults/` | GraphQL | One query + one mutation, no `operations:` block — kind-based defaults emit both with correct (idempotent, approval) pair |
+| `whole-spec-openapi-defaults/` | OpenAPI | GET + POST + DELETE, no `operations:` block — method-based defaults table |
+| `whole-spec-overrides/` | GraphQL | Query uses defaults, mutation overrides idempotent + approval — verifies override-on-top-of-default semantics |
 
 When you add a new emitter or spec loader, add one case per shape that materially changes the output.
 

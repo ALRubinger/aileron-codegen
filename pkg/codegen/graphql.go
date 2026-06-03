@@ -69,19 +69,6 @@ func rootFieldNames(root *ast.Definition) map[string]bool {
 	return out
 }
 
-// unionNames returns a fresh set containing every key from a and b. nil
-// inputs are treated as empty.
-func unionNames(a, b map[string]bool) map[string]bool {
-	out := make(map[string]bool, len(a)+len(b))
-	for k := range a {
-		out[k] = true
-	}
-	for k := range b {
-		out[k] = true
-	}
-	return out
-}
-
 // rootOperations walks a Query / Mutation / Subscription root and builds
 // one Operation per field. collidesWith carries the field names already
 // claimed by earlier roots: when a field's name appears in that set, the

@@ -55,6 +55,11 @@ type Operation struct {
 	// to build a default selection set; the OpenAPI emitter ignores it
 	// today. Empty for scalar returns, unions, and interfaces.
 	ReturnScalarFields []string
+	// ArgTypes maps each GraphQL field argument name to its full GraphQL
+	// type string (e.g., "String!", "IssueCreateInput!", "[String!]").
+	// Used by the handler emitter to build the variables declaration in
+	// the emitted GraphQL query string. Empty for OpenAPI ops.
+	ArgTypes map[string]string
 }
 
 // Parameter is one input surfaced as an [[inputs]] block in the emitted
@@ -64,6 +69,13 @@ type Parameter struct {
 	Type        string
 	Description string
 	Required    bool
+	// WrappedIn names the original GraphQL argument when this Parameter
+	// came from flattening a GraphQL input object (e.g. `input` for
+	// `issueCreate(input: IssueCreateInput!)`). Empty when the param
+	// was a direct scalar arg. The action.md emitter ignores it; the
+	// handler emitter uses it to rebuild the wrapping JSON shape the
+	// API expects.
+	WrappedIn string
 }
 
 // RequestBody captures the JSON body schema for an OpenAPI operation. Nil

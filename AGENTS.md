@@ -17,8 +17,9 @@ The generator runs at build time only. Connector binaries never see codegen.
 | OpenAPI spec loading | shipped — `.yaml` / `.yml` / `.json` |
 | GraphQL SDL loading | shipped — `.graphql` / `.graphqls` / `.gql` |
 | `action.md` emission | shipped (TOML front-matter only; prose body deferred) |
-| `manifest.toml` emission | **not shipped** — next emitter |
-| `suite.toml` emission | **not shipped** |
+| `connector/manifest.toml` emission | shipped — `[connector]` + `[capabilities.network]` + `[capabilities.credential]` for `api_key` and `oauth2` kinds |
+| `suite.toml` emission | shipped — optional, no-op when overlay lacks `suite:` block |
+| Whole-spec default action emission | **not shipped** — tracked at [#7](https://github.com/ALRubinger/aileron-codegen/issues/7) |
 | Typed Go fetch client | **not shipped** — delegate to oapi-codegen / genqlient when wired |
 | Multi-spec / multi-tenant | **out of scope** |
 
@@ -52,6 +53,7 @@ The existing golden cases:
 | `openapi-single-read/` | OpenAPI | GET + query param, `approval: none` omits `[approval]` block |
 | `graphql-linear-read/` | GraphQL | Query field, scalar arg, all three overlay overrides exercised |
 | `graphql-linear-write/` | GraphQL | Mutation + input-object flattening into multiple `[[inputs]]` |
+| `connector-full-graphql/` | GraphQL | Full stack: action.md per op + `connector/manifest.toml` (api_key with `header`/`format`) + `suite.toml` |
 
 When you add a new emitter or spec loader, add one case per shape that materially changes the output.
 
@@ -82,9 +84,9 @@ Use overrides when the spec's natural id produces an awkward action (e.g. GraphQ
 
 | Adding... | File |
 |---|---|
-| A new emitter (`manifest.toml`, `suite.toml`, ...) | New file in `pkg/codegen/`, implement `Emitter` interface, register in `defaultEmitters` in `emitter.go` |
+| A new emitter | New file in `pkg/codegen/`, implement `Emitter` interface, register in `defaultEmitters` in `emitter.go`. **No-op cleanly when the overlay lacks your inputs** — that's how `ManifestEmitter` and `SuiteEmitter` coexist with action-only test cases. |
 | A new spec format | New `load<Format>Spec` function in its own file, dispatch in `LoadSpec` in `spec.go` |
-| A new overlay field | `OperationOverlay` (or `ConnectorOverlay`) in `overlay.go`, with `yaml` tag on the internal `operationYAML` / `connectorYAML` mirror |
+| A new overlay field | The `*Overlay` struct in `overlay.go` (typed surface) plus the mirror `*YAML` struct (with `yaml:` tags); add the field to `toOverlay()` |
 | A new test case | `testdata/<case>/` with `spec.{yaml,graphql}`, `gen.yaml`, `expected/` — `TestGolden` picks it up automatically |
 
 ## Workflow conventions

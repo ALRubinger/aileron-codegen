@@ -1,0 +1,32 @@
+type Query {
+  """Fetch one Linear issue by its unique identifier."""
+  issue(
+    """Unique identifier (UUID) of the Linear issue."""
+    id: String!
+  ): Issue
+}
+
+type Mutation {
+  """Create a new Linear issue."""
+  issueCreate(
+    """Issue input fields."""
+    input: IssueCreateInput!
+  ): IssuePayload!
+}
+
+input IssueCreateInput {
+  """Issue title."""
+  title: String!
+  """UUID of the target team."""
+  teamId: String!
+}
+
+type Issue {
+  id: ID!
+  title: String!
+}
+
+type IssuePayload {
+  success: Boolean!
+  issue: Issue
+}

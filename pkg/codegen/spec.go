@@ -50,16 +50,31 @@ type Operation struct {
 	// Handler emitters use this to skip building a selection set and
 	// just request the value directly.
 	ReturnTypeIsScalar bool
-	// ReturnScalarFields is the (sorted) list of scalar-typed field
-	// names on the return type. The GraphQL handler emitter uses this
-	// to build a default selection set; the OpenAPI emitter ignores it
-	// today. Empty for scalar returns, unions, and interfaces.
-	ReturnScalarFields []string
+	// ReturnFields is the (sorted) selection tree for the return type.
+	// Scalar fields appear as leaves (Nested empty); fields whose own
+	// type is itself an OBJECT / INTERFACE recurse exactly one level —
+	// their scalar fields are surfaced as Nested entries so handler
+	// queries get the canonical Linear-style "wrapper { success,
+	// lastSyncId, entity { id, ... } }" shape. Empty for scalar
+	// returns, unions, and unknown types.
+	ReturnFields []ReturnField
 	// ArgTypes maps each GraphQL field argument name to its full GraphQL
 	// type string (e.g., "String!", "IssueCreateInput!", "[String!]").
 	// Used by the handler emitter to build the variables declaration in
 	// the emitted GraphQL query string. Empty for OpenAPI ops.
 	ArgTypes map[string]string
+}
+
+// ReturnField is one entry in the GraphQL selection set for an
+// operation's return type. Leaves (scalars / enums) have Nested
+// empty; object-typed fields have Nested populated with their own
+// scalar leaves. Recursion stops at one level (Nested entries cannot
+// themselves have Nested entries) — deeper recursion blows up query
+// payloads and risks server-side depth limits. Connectors that need
+// deeper selection can declare it per-op via overlay in a future PR.
+type ReturnField struct {
+	Name   string
+	Nested []ReturnField
 }
 
 // Parameter is one input surfaced as an [[inputs]] block in the emitted

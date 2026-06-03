@@ -64,7 +64,7 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 	}
 	sort.Slice(params, func(i, j int) bool { return params[i].Name < params[j].Name })
 
-	retName, retIsScalar, retScalarFields := resolveReturnType(f.Type, schema)
+	retName, retIsScalar, retFields := resolveReturnType(f.Type, schema)
 
 	op := Operation{
 		ID:                 f.Name,
@@ -73,7 +73,7 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 		Parameters:         params,
 		ReturnType:         retName,
 		ReturnTypeIsScalar: retIsScalar,
-		ReturnScalarFields: retScalarFields,
+		ReturnFields:       retFields,
 	}
 	if len(argTypes) > 0 {
 		op.ArgTypes = argTypes
@@ -82,19 +82,19 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 }
 
 // resolveReturnType walks the GraphQL field's return type and returns
-// (named, isScalar, scalarFields).
+// (named, isScalar, fields).
 //
 //   - named is the unwrapped named type (e.g. "Issue" for `Issue!` or
 //     `[Issue!]!`). Empty when the parser doesn't know the type.
 //   - isScalar is true when the named type is SCALAR or ENUM. Handler
 //     emitters skip building a selection set in that case.
-//   - scalarFields is the sorted list of field names on the return
-//     object whose own type unwraps to a scalar/enum. The handler
-//     emitter uses these to build a default selection set. Empty for
-//     scalar returns, unions, and interfaces (selection on unions /
-//     interfaces requires `__typename` + per-variant fragments — out
-//     of scope until a real connector needs them).
-func resolveReturnType(t *ast.Type, schema *ast.Schema) (string, bool, []string) {
+//   - fields is the sorted selection tree. Scalar / enum subfields
+//     appear as leaves (Nested empty). OBJECT / INTERFACE subfields
+//     recurse one level — their own scalar fields populate Nested.
+//     Recursion stops at depth 2 to bound query size and avoid
+//     server-side depth-limit denials. Empty for scalar returns,
+//     unions, and unknown types.
+func resolveReturnType(t *ast.Type, schema *ast.Schema) (string, bool, []ReturnField) {
 	name := unwrapNamedType(t)
 	if name == "" {
 		return "", false, nil
@@ -107,24 +107,61 @@ func resolveReturnType(t *ast.Type, schema *ast.Schema) (string, bool, []string)
 	case ast.Scalar, ast.Enum:
 		return name, true, nil
 	case ast.Object, ast.Interface:
-		var fields []string
-		for _, f := range def.Fields {
-			if strings.HasPrefix(f.Name, "__") {
-				continue
-			}
-			inner := unwrapNamedType(f.Type)
-			innerDef, ok := schema.Types[inner]
-			if !ok {
-				continue
-			}
-			if innerDef.Kind == ast.Scalar || innerDef.Kind == ast.Enum {
-				fields = append(fields, f.Name)
-			}
-		}
-		sort.Strings(fields)
-		return name, false, fields
+		return name, false, collectReturnFields(def, schema)
 	}
 	return name, false, nil
+}
+
+// collectReturnFields walks the fields of an object/interface type and
+// returns the selection tree. Scalar leaves go in as ReturnField{Name}
+// with no Nested; object-typed fields go in with Nested populated
+// from their scalar children (no further recursion).
+func collectReturnFields(def *ast.Definition, schema *ast.Schema) []ReturnField {
+	var out []ReturnField
+	for _, f := range def.Fields {
+		if strings.HasPrefix(f.Name, "__") {
+			continue
+		}
+		inner := unwrapNamedType(f.Type)
+		innerDef, ok := schema.Types[inner]
+		if !ok {
+			continue
+		}
+		switch innerDef.Kind {
+		case ast.Scalar, ast.Enum:
+			out = append(out, ReturnField{Name: f.Name})
+		case ast.Object, ast.Interface:
+			children := collectScalarChildren(innerDef, schema)
+			if len(children) == 0 {
+				continue
+			}
+			out = append(out, ReturnField{Name: f.Name, Nested: children})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// collectScalarChildren returns the scalar-typed fields of an object
+// at the second-level recursion. Stops at scalars; never recurses
+// further so two-level-deep objects don't blow up the query payload.
+func collectScalarChildren(def *ast.Definition, schema *ast.Schema) []ReturnField {
+	var out []ReturnField
+	for _, f := range def.Fields {
+		if strings.HasPrefix(f.Name, "__") {
+			continue
+		}
+		inner := unwrapNamedType(f.Type)
+		innerDef, ok := schema.Types[inner]
+		if !ok {
+			continue
+		}
+		if innerDef.Kind == ast.Scalar || innerDef.Kind == ast.Enum {
+			out = append(out, ReturnField{Name: f.Name})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 // expandGraphQLArg returns the [[inputs]] entries for one GraphQL argument.

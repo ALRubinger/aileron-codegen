@@ -1,0 +1,12 @@
+# Regression case for #17: `initiativeUpdate` declared on both `type
+# Query` and `type Mutation`. Pre-fix the loader emitted two operations
+# with the same ID and every downstream Go identifier / action name /
+# op string collided. The loader now suffixes the Mutation's ID with
+# "Mutation"; the Query keeps the bare name. No overlay overrides — the
+# defaults table from #7 governs (query → idempotent + no approval,
+# mutation → non-idempotent + approval required).
+connector:
+  endpoint: "https://example.com/graphql"
+  name: "github://example/connector-collision"
+  credential:
+    kind: "api_key"

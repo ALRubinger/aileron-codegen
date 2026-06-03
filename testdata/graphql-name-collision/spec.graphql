@@ -1,0 +1,31 @@
+type Query {
+  """Fetch one initiative update by id."""
+  initiativeUpdate(id: String!): InitiativeUpdate
+
+  """A non-colliding query — verifies the suffix only fires on collision."""
+  viewer: User
+}
+
+type Mutation {
+  """Create or update an initiative update — collides with Query.initiativeUpdate."""
+  initiativeUpdate(input: InitiativeUpdateInput!): InitiativeUpdatePayload!
+}
+
+input InitiativeUpdateInput {
+  """Markdown body of the update."""
+  body: String!
+}
+
+type InitiativeUpdate {
+  id: ID!
+  body: String!
+}
+
+type InitiativeUpdatePayload {
+  success: Boolean!
+}
+
+type User {
+  id: ID!
+  name: String!
+}

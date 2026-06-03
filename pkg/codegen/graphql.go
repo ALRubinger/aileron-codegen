@@ -19,6 +19,17 @@ import (
 // is a GraphQL input object are flattened one level: the input object's
 // fields become individual Parameters. Deeper nesting and list-of-input
 // patterns are out of scope until a real connector needs them.
+//
+// Subscription root fields are deliberately skipped: the downstream
+// handler emitter dispatches via single-shot HTTP POST, which is not a
+// working transport for GraphQL subscriptions (the spec assumes a
+// streaming transport — graphql-ws over WebSocket in practice). Emitting
+// POST handlers would surface broken action.md entries on any
+// subscription-heavy schema (e.g. Linear's ~76). The skip is logged to
+// stderr with the count so downstream connectors see what was dropped.
+// The collisionSuffix "Subscription" arm and the SUBSCRIPTION
+// classification in action.go/handler.go are kept as defensive infra
+// for when streaming transport lands.
 func loadGraphQLSpec(path string) (Spec, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -32,11 +43,12 @@ func loadGraphQLSpec(path string) (Spec, error) {
 		return Spec{}, fmt.Errorf("parse spec: %w", gqlErr)
 	}
 	queryNames := rootFieldNames(schema.Query)
-	mutationNames := rootFieldNames(schema.Mutation)
 	var ops []Operation
 	ops = append(ops, rootOperations(schema.Query, "QUERY", schema, nil)...)
 	ops = append(ops, rootOperations(schema.Mutation, "MUTATION", schema, queryNames)...)
-	ops = append(ops, rootOperations(schema.Subscription, "SUBSCRIPTION", schema, unionNames(queryNames, mutationNames))...)
+	if skipped := len(rootFieldNames(schema.Subscription)); skipped > 0 {
+		fmt.Fprintf(os.Stderr, "aileron-codegen: skipped %d Subscription root field(s) from %s (streaming transport not modeled — see loadGraphQLSpec docstring)\n", skipped, filepath.Base(path))
+	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i].ID < ops[j].ID })
 	return Spec{Operations: ops}, nil
 }

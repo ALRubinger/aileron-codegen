@@ -1,0 +1,28 @@
+connector:
+  name: "github://ALRubinger/aileron-connector-linear"
+  publisher: "ALRubinger"
+  credential:
+    kind: "api_key"
+    header: "Authorization"
+    format: "{key}"
+  network:
+    hosts:
+      - "api.linear.app:443"
+
+suite:
+  name: "linear-issues"
+  description: "Fetch and create Linear issues."
+
+operations:
+  issue:
+    idempotent: true
+    approval: none
+    capabilities: ["get_issue"]
+    action_name: "get-issue"
+    execute_id: "get"
+    intent: "fetch a Linear issue by id"
+
+  issueCreate:
+    idempotent: false
+    approval: required
+    capabilities: ["create_issue"]

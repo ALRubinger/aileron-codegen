@@ -15,15 +15,26 @@ type Options struct {
 }
 
 // Emitter writes connector scaffolding derived from a Spec and Overlay into
-// an output directory. One implementation per output kind: ActionEmitter
-// today, with manifest.toml / suite.toml / typed Go client emitters in
-// follow-up PRs.
+// an output directory. One implementation per output kind: ActionEmitter +
+// ManifestEmitter + SuiteEmitter today, with typed Go client emission to
+// follow.
+//
+// Each emitter is responsible for deciding whether to act on a given
+// (Spec, Overlay) pair. ManifestEmitter no-ops when overlay lacks the
+// connector + credential + network fields; SuiteEmitter no-ops when
+// overlay.Suite is nil. That keeps small / partial overlays building
+// just the actions they need without forcing every connector to declare
+// every block.
 type Emitter interface {
 	Emit(spec Spec, overlay Overlay, outDir string) error
 }
 
 // defaultEmitters runs in declared order on every Generate call.
-var defaultEmitters = []Emitter{ActionEmitter{}}
+var defaultEmitters = []Emitter{
+	ActionEmitter{},
+	ManifestEmitter{},
+	SuiteEmitter{},
+}
 
 // Generate is the high-level entry point used by the CLI. It loads the spec
 // and overlay, then dispatches each registered emitter against the parsed

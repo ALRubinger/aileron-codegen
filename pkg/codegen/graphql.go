@@ -57,14 +57,16 @@ func rootOperations(root *ast.Definition, kind string, schema *ast.Schema) []Ope
 
 func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Schema) Operation {
 	var params []Parameter
+	argTypes := make(map[string]string, len(f.Arguments))
 	for _, arg := range f.Arguments {
+		argTypes[arg.Name] = arg.Type.String()
 		params = append(params, expandGraphQLArg(arg, schema)...)
 	}
 	sort.Slice(params, func(i, j int) bool { return params[i].Name < params[j].Name })
 
 	retName, retIsScalar, retScalarFields := resolveReturnType(f.Type, schema)
 
-	return Operation{
+	op := Operation{
 		ID:                 f.Name,
 		Method:             kind,
 		Summary:            f.Description,
@@ -73,6 +75,10 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 		ReturnTypeIsScalar: retIsScalar,
 		ReturnScalarFields: retScalarFields,
 	}
+	if len(argTypes) > 0 {
+		op.ArgTypes = argTypes
+	}
+	return op
 }
 
 // resolveReturnType walks the GraphQL field's return type and returns
@@ -123,7 +129,8 @@ func resolveReturnType(t *ast.Type, schema *ast.Schema) (string, bool, []string)
 
 // expandGraphQLArg returns the [[inputs]] entries for one GraphQL argument.
 // Scalar / enum / list args produce a single Parameter; arguments typed as
-// an input object are flattened into their fields.
+// an input object are flattened into their fields, with WrappedIn set to
+// the original arg name so the handler emitter can rebuild the wrapping.
 func expandGraphQLArg(arg *ast.ArgumentDefinition, schema *ast.Schema) []Parameter {
 	named := unwrapNamedType(arg.Type)
 	if typeDef, ok := schema.Types[named]; ok && typeDef.Kind == ast.InputObject {
@@ -134,6 +141,7 @@ func expandGraphQLArg(arg *ast.ArgumentDefinition, schema *ast.Schema) []Paramet
 				Type:        unwrapNamedType(inputField.Type),
 				Description: inputField.Description,
 				Required:    inputField.Type.NonNull,
+				WrappedIn:   arg.Name,
 			})
 		}
 		return fields

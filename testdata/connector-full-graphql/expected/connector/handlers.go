@@ -29,6 +29,10 @@ func handleIssue(args map[string]any, transport Transport) (map[string]any, erro
 
 const issueCreateMutation = `mutation IssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
+    issue {
+      id
+      title
+    }
     success
   }
 }`

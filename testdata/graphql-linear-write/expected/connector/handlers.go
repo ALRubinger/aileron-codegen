@@ -11,6 +11,11 @@ import "fmt"
 
 const issueCreateMutation = `mutation IssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
+    issue {
+      id
+      identifier
+      title
+    }
     lastSyncId
     success
   }

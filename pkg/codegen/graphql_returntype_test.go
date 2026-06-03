@@ -73,29 +73,40 @@ type IssuePayload {
 	}
 
 	cases := []struct {
-		opID          string
-		wantType      string
-		wantScalar    bool
-		wantFields    []string
+		opID       string
+		wantType   string
+		wantScalar bool
+		wantFields []ReturnField
 	}{
 		{
-			// Direct object return: selection set should include
-			// scalar fields of Issue (id, identifier, title,
-			// description) but not `state` or `team` which are
-			// themselves objects.
+			// Direct object return: selection includes Issue's four
+			// scalar fields PLUS one-level recursion into the nested
+			// state and team objects (their own scalar fields).
 			opID:       "issue",
 			wantType:   "Issue",
 			wantScalar: false,
-			wantFields: []string{"description", "id", "identifier", "title"},
+			wantFields: []ReturnField{
+				{Name: "description"},
+				{Name: "id"},
+				{Name: "identifier"},
+				{Name: "state", Nested: []ReturnField{{Name: "id"}, {Name: "name"}}},
+				{Name: "team", Nested: []ReturnField{{Name: "id"}, {Name: "name"}}},
+				{Name: "title"},
+			},
 		},
 		{
+			// Zero-arg query, flat object return.
 			opID:       "viewer",
 			wantType:   "User",
 			wantScalar: false,
-			wantFields: []string{"email", "id", "name"},
+			wantFields: []ReturnField{
+				{Name: "email"},
+				{Name: "id"},
+				{Name: "name"},
+			},
 		},
 		{
-			// Scalar return — no selection set, no scalar-fields list.
+			// Scalar return — no selection set.
 			opID:       "serverTime",
 			wantType:   "String",
 			wantScalar: true,
@@ -107,15 +118,34 @@ type IssuePayload {
 			opID:       "issues",
 			wantType:   "Issue",
 			wantScalar: false,
-			wantFields: []string{"description", "id", "identifier", "title"},
+			wantFields: []ReturnField{
+				{Name: "description"},
+				{Name: "id"},
+				{Name: "identifier"},
+				{Name: "state", Nested: []ReturnField{{Name: "id"}, {Name: "name"}}},
+				{Name: "team", Nested: []ReturnField{{Name: "id"}, {Name: "name"}}},
+				{Name: "title"},
+			},
 		},
 		{
-			// Mutation returning a wrapper object: scalar fields of
-			// IssuePayload, not of the nested Issue.
+			// Mutation wrapper: scalars of IssuePayload (lastSyncId,
+			// success) PLUS one-level recursion into the nested
+			// `issue` field. Crucially, the recursion stops at
+			// scalar children of Issue — `state` and `team` (objects
+			// at depth 2) are not surfaced, by design.
 			opID:       "issueCreate",
 			wantType:   "IssuePayload",
 			wantScalar: false,
-			wantFields: []string{"lastSyncId", "success"},
+			wantFields: []ReturnField{
+				{Name: "issue", Nested: []ReturnField{
+					{Name: "description"},
+					{Name: "id"},
+					{Name: "identifier"},
+					{Name: "title"},
+				}},
+				{Name: "lastSyncId"},
+				{Name: "success"},
+			},
 		},
 	}
 
@@ -131,11 +161,26 @@ type IssuePayload {
 			if op.ReturnTypeIsScalar != tc.wantScalar {
 				t.Errorf("ReturnTypeIsScalar = %v, want %v", op.ReturnTypeIsScalar, tc.wantScalar)
 			}
-			if !equalStrings(op.ReturnScalarFields, tc.wantFields) {
-				t.Errorf("ReturnScalarFields = %v, want %v", op.ReturnScalarFields, tc.wantFields)
+			if !equalReturnFields(op.ReturnFields, tc.wantFields) {
+				t.Errorf("ReturnFields mismatch:\n  got:  %+v\n  want: %+v", op.ReturnFields, tc.wantFields)
 			}
 		})
 	}
+}
+
+func equalReturnFields(a, b []ReturnField) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+		if !equalReturnFields(a[i].Nested, b[i].Nested) {
+			return false
+		}
+	}
+	return true
 }
 
 func mustParseGraphQL(t *testing.T, sdl string) Spec {
@@ -152,14 +197,3 @@ func mustParseGraphQL(t *testing.T, sdl string) Spec {
 	return spec
 }
 
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}

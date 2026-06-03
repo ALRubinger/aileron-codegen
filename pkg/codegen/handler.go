@@ -177,17 +177,39 @@ func buildQueryString(op Operation) string {
 		}
 		b.WriteByte(')')
 	}
-	if !op.ReturnTypeIsScalar && len(op.ReturnScalarFields) > 0 {
+	if !op.ReturnTypeIsScalar && len(op.ReturnFields) > 0 {
 		b.WriteString(" {\n")
-		for _, f := range op.ReturnScalarFields {
-			b.WriteString("    ")
-			b.WriteString(f)
-			b.WriteByte('\n')
-		}
+		writeSelectionSet(&b, op.ReturnFields, "    ")
 		b.WriteString("  }")
 	}
 	b.WriteString("\n}")
 	return b.String()
+}
+
+// writeSelectionSet emits the selection block for one level. Nested
+// fields (children of object-typed fields) get their own indented
+// block underneath the parent line; scalar leaves are one line each.
+// Recursion stops with the field's Nested entries — the loader only
+// populates one level deep — so this writer doesn't need to chase
+// further.
+func writeSelectionSet(b *strings.Builder, fields []ReturnField, indent string) {
+	for _, f := range fields {
+		b.WriteString(indent)
+		b.WriteString(f.Name)
+		if len(f.Nested) > 0 {
+			b.WriteString(" {\n")
+			for _, child := range f.Nested {
+				b.WriteString(indent)
+				b.WriteString("  ")
+				b.WriteString(child.Name)
+				b.WriteByte('\n')
+			}
+			b.WriteString(indent)
+			b.WriteString("}\n")
+		} else {
+			b.WriteByte('\n')
+		}
+	}
 }
 
 func sortedArgNames(op Operation) []string {

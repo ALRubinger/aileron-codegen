@@ -3,6 +3,13 @@ connector:
   credential:
     kind: "api_key"
 
+# Keep the test focused on the mutation's input-flattening behavior.
+# Post-#7, every op in the spec emits by default, so `viewer` would
+# otherwise produce a noisy second action.md the test doesn't care
+# about.
+exclude:
+  - "viewer"
+
 operations:
   issueCreate:
     idempotent: false

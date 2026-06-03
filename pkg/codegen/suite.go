@@ -31,15 +31,13 @@ func (SuiteEmitter) Emit(spec Spec, overlay Overlay, outDir string) error {
 
 // emittedActionSubpaths returns the actions/<name> subpath strings that
 // ActionEmitter would write for the given (spec, overlay) pair, sorted
-// for deterministic emission. Filter mirrors ActionEmitter.Emit so the
-// two stay in lock-step without sharing state.
+// for deterministic emission. Calls into the same emittableOperations
+// helper ActionEmitter uses so the two stay in lock-step without
+// sharing state.
 func emittedActionSubpaths(spec Spec, overlay Overlay) []string {
 	var subpaths []string
-	for _, op := range spec.Operations {
-		o, ok := overlay.Operations[op.ID]
-		if !ok {
-			continue
-		}
+	for _, op := range emittableOperations(spec, overlay) {
+		o := overlay.Operations[op.ID]
 		subpaths = append(subpaths, "actions/"+resolveActionName(op, o))
 	}
 	sort.Strings(subpaths)

@@ -1,0 +1,22 @@
+type Query {
+  """Get the currently authenticated user."""
+  viewer: User
+}
+
+type Mutation {
+  """Create a thing."""
+  thingCreate(
+    """Display name for the new thing."""
+    name: String!
+  ): Thing
+}
+
+type User {
+  id: ID!
+  name: String!
+}
+
+type Thing {
+  id: ID!
+  name: String!
+}

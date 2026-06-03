@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: things-api
+  version: 0.0.0
+paths:
+  /things:
+    get:
+      operationId: listThings
+      summary: list things
+      responses:
+        "200":
+          description: ok
+    post:
+      operationId: createThing
+      summary: create a thing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: Thing name.
+      responses:
+        "201":
+          description: created
+  /things/{id}:
+    delete:
+      operationId: deleteThing
+      summary: delete a thing
+      parameters:
+        - name: id
+          in: path
+          description: Identifier of the thing.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: deleted

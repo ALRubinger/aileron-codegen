@@ -1,0 +1,17 @@
+type Query {
+  """List teams the viewer belongs to."""
+  teams: [Team!]!
+}
+
+type Mutation {
+  """Mark an issue as read. Reversible client-side, so no per-call approval needed."""
+  issueMarkAsRead(
+    """ID of the issue to mark as read."""
+    id: String!
+  ): Boolean
+}
+
+type Team {
+  id: ID!
+  name: String!
+}

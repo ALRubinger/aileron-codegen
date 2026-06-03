@@ -1,0 +1,9 @@
+# No `operations:` block — every op in the spec emits with the
+# kind-based defaults:
+#   GET / HEAD      -> idempotent: true,  approval: none
+#   PUT             -> idempotent: true,  approval: required
+#   POST/PATCH/DELETE -> idempotent: false, approval: required
+connector:
+  name: "github://example/connector-defaults"
+  credential:
+    kind: "api_key"

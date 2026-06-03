@@ -1,0 +1,9 @@
+# No `operations:` block — every op in the spec emits with the
+# kind-based defaults from issue #7's table:
+#   Query        -> idempotent: true,  approval: none
+#   Mutation     -> idempotent: false, approval: required
+# Capabilities default to [snake_case(operationId)].
+connector:
+  name: "github://example/connector-defaults"
+  credential:
+    kind: "api_key"

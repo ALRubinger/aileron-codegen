@@ -61,12 +61,64 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 		params = append(params, expandGraphQLArg(arg, schema)...)
 	}
 	sort.Slice(params, func(i, j int) bool { return params[i].Name < params[j].Name })
+
+	retName, retIsScalar, retScalarFields := resolveReturnType(f.Type, schema)
+
 	return Operation{
-		ID:         f.Name,
-		Method:     kind,
-		Summary:    f.Description,
-		Parameters: params,
+		ID:                 f.Name,
+		Method:             kind,
+		Summary:            f.Description,
+		Parameters:         params,
+		ReturnType:         retName,
+		ReturnTypeIsScalar: retIsScalar,
+		ReturnScalarFields: retScalarFields,
 	}
+}
+
+// resolveReturnType walks the GraphQL field's return type and returns
+// (named, isScalar, scalarFields).
+//
+//   - named is the unwrapped named type (e.g. "Issue" for `Issue!` or
+//     `[Issue!]!`). Empty when the parser doesn't know the type.
+//   - isScalar is true when the named type is SCALAR or ENUM. Handler
+//     emitters skip building a selection set in that case.
+//   - scalarFields is the sorted list of field names on the return
+//     object whose own type unwraps to a scalar/enum. The handler
+//     emitter uses these to build a default selection set. Empty for
+//     scalar returns, unions, and interfaces (selection on unions /
+//     interfaces requires `__typename` + per-variant fragments — out
+//     of scope until a real connector needs them).
+func resolveReturnType(t *ast.Type, schema *ast.Schema) (string, bool, []string) {
+	name := unwrapNamedType(t)
+	if name == "" {
+		return "", false, nil
+	}
+	def, ok := schema.Types[name]
+	if !ok {
+		return name, false, nil
+	}
+	switch def.Kind {
+	case ast.Scalar, ast.Enum:
+		return name, true, nil
+	case ast.Object, ast.Interface:
+		var fields []string
+		for _, f := range def.Fields {
+			if strings.HasPrefix(f.Name, "__") {
+				continue
+			}
+			inner := unwrapNamedType(f.Type)
+			innerDef, ok := schema.Types[inner]
+			if !ok {
+				continue
+			}
+			if innerDef.Kind == ast.Scalar || innerDef.Kind == ast.Enum {
+				fields = append(fields, f.Name)
+			}
+		}
+		sort.Strings(fields)
+		return name, false, fields
+	}
+	return name, false, nil
 }
 
 // expandGraphQLArg returns the [[inputs]] entries for one GraphQL argument.

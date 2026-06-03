@@ -40,6 +40,21 @@ type Operation struct {
 	// RequestBody is the JSON body schema for OpenAPI operations; nil when
 	// absent or for GraphQL.
 	RequestBody *RequestBody
+	// ReturnType is the named GraphQL return type (e.g. "Issue") or the
+	// OpenAPI response schema name (when populated by the loader). Lists
+	// and non-null wrappers are unwrapped to the inner named type;
+	// empty when the loader cannot determine one (OpenAPI today).
+	ReturnType string
+	// ReturnTypeIsScalar is true when ReturnType is a GraphQL scalar /
+	// enum / built-in (String, Int, Boolean, ID, custom DateTime, etc).
+	// Handler emitters use this to skip building a selection set and
+	// just request the value directly.
+	ReturnTypeIsScalar bool
+	// ReturnScalarFields is the (sorted) list of scalar-typed field
+	// names on the return type. The GraphQL handler emitter uses this
+	// to build a default selection set; the OpenAPI emitter ignores it
+	// today. Empty for scalar returns, unions, and interfaces.
+	ReturnScalarFields []string
 }
 
 // Parameter is one input surfaced as an [[inputs]] block in the emitted

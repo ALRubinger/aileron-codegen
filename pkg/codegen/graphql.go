@@ -31,14 +31,53 @@ func loadGraphQLSpec(path string) (Spec, error) {
 	if gqlErr != nil {
 		return Spec{}, fmt.Errorf("parse spec: %w", gqlErr)
 	}
+	queryNames := rootFieldNames(schema.Query)
+	mutationNames := rootFieldNames(schema.Mutation)
 	var ops []Operation
-	ops = append(ops, rootOperations(schema.Query, "QUERY", schema)...)
-	ops = append(ops, rootOperations(schema.Mutation, "MUTATION", schema)...)
+	ops = append(ops, rootOperations(schema.Query, "QUERY", schema, nil)...)
+	ops = append(ops, rootOperations(schema.Mutation, "MUTATION", schema, queryNames)...)
+	ops = append(ops, rootOperations(schema.Subscription, "SUBSCRIPTION", schema, unionNames(queryNames, mutationNames))...)
 	sort.Slice(ops, func(i, j int) bool { return ops[i].ID < ops[j].ID })
 	return Spec{Operations: ops}, nil
 }
 
-func rootOperations(root *ast.Definition, kind string, schema *ast.Schema) []Operation {
+// rootFieldNames returns the set of user-facing field names on a root
+// type, skipping the gqlparser-injected introspection fields. nil-safe.
+func rootFieldNames(root *ast.Definition) map[string]bool {
+	if root == nil {
+		return nil
+	}
+	out := make(map[string]bool, len(root.Fields))
+	for _, f := range root.Fields {
+		if strings.HasPrefix(f.Name, "__") {
+			continue
+		}
+		out[f.Name] = true
+	}
+	return out
+}
+
+// unionNames returns a fresh set containing every key from a and b. nil
+// inputs are treated as empty.
+func unionNames(a, b map[string]bool) map[string]bool {
+	out := make(map[string]bool, len(a)+len(b))
+	for k := range a {
+		out[k] = true
+	}
+	for k := range b {
+		out[k] = true
+	}
+	return out
+}
+
+// rootOperations walks a Query / Mutation / Subscription root and builds
+// one Operation per field. collidesWith carries the field names already
+// claimed by earlier roots: when a field's name appears in that set, the
+// Operation.ID is suffixed with the kind ("Mutation" or "Subscription")
+// to keep the downstream Go identifier and emitted action name unique.
+// The raw GraphQL field name is preserved on Operation.FieldName so the
+// emitted query document still calls the schema's actual field name.
+func rootOperations(root *ast.Definition, kind string, schema *ast.Schema, collidesWith map[string]bool) []Operation {
 	if root == nil {
 		return nil
 	}
@@ -50,9 +89,27 @@ func rootOperations(root *ast.Definition, kind string, schema *ast.Schema) []Ope
 		if strings.HasPrefix(f.Name, "__") {
 			continue
 		}
-		ops = append(ops, graphqlFieldToOperation(f, kind, schema))
+		op := graphqlFieldToOperation(f, kind, schema)
+		if collidesWith[f.Name] {
+			op.ID = f.Name + collisionSuffix(kind)
+		}
+		ops = append(ops, op)
 	}
 	return ops
+}
+
+// collisionSuffix returns the camelCase suffix appended to an Operation.ID
+// when its raw field name collides with one already claimed by an earlier
+// root type. The empty string for unknown kinds keeps the loader from
+// silently mangling IDs if a future caller passes an unexpected kind.
+func collisionSuffix(kind string) string {
+	switch kind {
+	case "MUTATION":
+		return "Mutation"
+	case "SUBSCRIPTION":
+		return "Subscription"
+	}
+	return ""
 }
 
 func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Schema) Operation {
@@ -68,6 +125,7 @@ func graphqlFieldToOperation(f *ast.FieldDefinition, kind string, schema *ast.Sc
 
 	op := Operation{
 		ID:                 f.Name,
+		FieldName:          f.Name,
 		Method:             kind,
 		Summary:            f.Description,
 		Parameters:         params,

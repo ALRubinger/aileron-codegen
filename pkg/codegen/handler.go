@@ -96,6 +96,9 @@ func buildHandlerOpView(op Operation) handlerOpView {
 
 // queryConstName returns the Go identifier of the GraphQL query
 // constant: camelCase(op.ID) + ("Query" | "Mutation" | "Subscription").
+// When op.ID already ends with the method suffix — which happens for a
+// Mutation whose ID the loader suffixed to break a Query/Mutation field
+// collision — the suffix is not appended twice.
 func queryConstName(op Operation) string {
 	suffix := "Query"
 	switch strings.ToUpper(op.Method) {
@@ -104,13 +107,30 @@ func queryConstName(op Operation) string {
 	case "SUBSCRIPTION":
 		suffix = "Subscription"
 	}
-	return lowerFirst(op.ID) + suffix
+	name := lowerFirst(op.ID)
+	if strings.HasSuffix(name, suffix) {
+		return name
+	}
+	return name + suffix
 }
 
 // handlerName returns the Go identifier of the handler function:
 // "handle" + PascalCase(op.ID).
 func handlerName(op Operation) string {
 	return "handle" + upperFirst(op.ID)
+}
+
+// graphqlFieldNameFor returns the on-the-wire GraphQL field name to
+// invoke inside the emitted query string. For GraphQL ops this is the
+// raw root-field name (Operation.FieldName), which may diverge from
+// Operation.ID when the loader suffixed ID to disambiguate a
+// Query/Mutation collision. Falls back to ID for pre-FieldName specs
+// and any future non-GraphQL caller.
+func graphqlFieldNameFor(op Operation) string {
+	if op.FieldName != "" {
+		return op.FieldName
+	}
+	return op.ID
 }
 
 func upperFirst(s string) string {
@@ -164,7 +184,7 @@ func buildQueryString(op Operation) string {
 		b.WriteByte(')')
 	}
 	b.WriteString(" {\n  ")
-	b.WriteString(op.ID)
+	b.WriteString(graphqlFieldNameFor(op))
 	if len(argNames) > 0 {
 		b.WriteByte('(')
 		for i, name := range argNames {

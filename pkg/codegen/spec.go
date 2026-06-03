@@ -23,9 +23,21 @@ type Spec struct {
 // Operation is one spec operation surfaced to the emitter. For OpenAPI this
 // is one HTTP method + path; for GraphQL one Query/Mutation root field.
 type Operation struct {
-	// ID is the canonical operation identifier (OpenAPI operationId, or the
-	// GraphQL root-field name).
+	// ID is the canonical operation identifier — drives every downstream
+	// Go identifier (handler name, query const) and emitted artifact name
+	// (action directory, snake_case op string). For OpenAPI this is the
+	// operationId. For GraphQL this is the root-field name, suffixed with
+	// "Mutation" when the same field name also appears on type Query (and
+	// similarly with "Subscription" for three-way collisions) so that the
+	// emitted Go and action names stay unique. The raw GraphQL field name
+	// (which the emitted query string must use to call the field) lives in
+	// FieldName.
 	ID string
+	// FieldName is the raw GraphQL root-field name for GraphQL operations.
+	// Empty for OpenAPI. The handler emitter uses this when writing the
+	// GraphQL document so the field invocation matches the schema even
+	// when ID has been suffixed to disambiguate a Query/Mutation collision.
+	FieldName string
 	// Method is "GET"/"POST"/... for OpenAPI or "QUERY"/"MUTATION" for
 	// GraphQL.
 	Method string
